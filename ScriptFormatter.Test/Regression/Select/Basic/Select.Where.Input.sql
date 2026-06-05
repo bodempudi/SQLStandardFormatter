@@ -1,0 +1,1 @@
+﻿SELECT Col1,Col2 from dbo.Customer where Col1 = 10

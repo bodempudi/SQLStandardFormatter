@@ -1,0 +1,15 @@
+IF @Status = 'A'
+BEGIN
+	SELECT
+		'ACTIVE'
+END
+ELSE IF @Status = 'P'
+BEGIN
+	SELECT
+		'PENDING'
+END
+ELSE
+BEGIN
+	SELECT
+		'OTHER'
+END

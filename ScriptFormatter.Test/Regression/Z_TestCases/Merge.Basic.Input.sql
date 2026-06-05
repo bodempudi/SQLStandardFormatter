@@ -1,0 +1,1 @@
+merge dbo.CustomerTarget t using dbo.CustomerSource s on t.CustomerId=s.CustomerId when matched then update set t.CustomerName=s.CustomerName when not matched then insert(CustomerId,CustomerName) values(s.CustomerId,s.CustomerName);

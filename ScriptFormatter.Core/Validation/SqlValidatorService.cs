@@ -1,0 +1,92 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+
+namespace ScriptFormatter.Core.Validation
+{
+    public class SqlValidatorService
+    {
+        public IList<SqlValidationIssue> Validate(string sql)
+        {
+            var issues = new List<SqlValidationIssue>();
+
+            if (string.IsNullOrWhiteSpace(sql))
+            {
+                return issues;
+            }
+
+            AddSplitKeywordIssue(issues, sql, @"\bse\s+lect\b", "SELECT");
+            AddSplitKeywordIssue(issues, sql, @"\bsele\s+ct\b", "SELECT");
+            AddSplitKeywordIssue(issues, sql, @"\bfr\s+om\b", "FROM");
+            AddSplitKeywordIssue(issues, sql, @"\bwhe\s+re\b", "WHERE");
+            AddSplitKeywordIssue(issues, sql, @"\bcrea\s+te\b", "CREATE");
+            AddSplitKeywordIssue(issues, sql, @"\bgro\s+up\b", "GROUP");
+            AddSplitKeywordIssue(issues, sql, @"\bord\s+er\b", "ORDER");
+            AddSplitKeywordIssue(issues, sql, @"\bhav\s+ing\b", "HAVING");
+
+            return issues;
+        }
+
+        private static void AddSplitKeywordIssue(
+            IList<SqlValidationIssue> issues,
+            string sql,
+            string pattern,
+            string keyword)
+        {
+            MatchCollection matches = Regex.Matches(
+                sql,
+                pattern,
+                RegexOptions.IgnoreCase | RegexOptions.Multiline);
+
+            foreach (Match match in matches)
+            {
+                LineColumn location = GetLineColumn(sql, match.Index);
+
+                issues.Add(
+                    new SqlValidationIssue
+                    {
+                        Line = location.Line,
+                        Column = location.Column,
+                        Message = "Suspicious split keyword detected. Did you mean '" + keyword + "'?"
+                    });
+            }
+        }
+
+        private static LineColumn GetLineColumn(string text, int index)
+        {
+            int line = 1;
+            int column = 1;
+
+            for (int i = 0; i < index && i < text.Length; i++)
+            {
+                if (text[i] == '\n')
+                {
+                    line++;
+                    column = 1;
+                }
+                else if (text[i] != '\r')
+                {
+                    column++;
+                }
+            }
+
+            return new LineColumn(line, column);
+        }
+
+        private sealed class LineColumn
+        {
+            public LineColumn(int line, int column)
+            {
+                Line = line;
+                Column = column;
+            }
+
+            public int Line { get; }
+
+            public int Column { get; }
+        }
+    }
+}
