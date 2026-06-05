@@ -136,6 +136,36 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Regression\Comments\Comment.Block.Expected.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Regression\Comments\Comment.Block.Input.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Regression\Comments\Comment.Header.Expected.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Regression\Comments\Comment.Header.Input.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Regression\Comments\Comment.Procedure.Block.Expected.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Regression\Comments\Comment.Procedure.Block.Input.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Regression\Comments\Comment.SelectColumn.Inline.Expected.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Regression\Comments\Comment.SelectColumn.Inline.Input.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Regression\Comments\Comment.Where.Inline.Expected.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Regression\Comments\Comment.Where.Inline.Input.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Regression\Select\Basic\Select.Basic.Expected.sql">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
