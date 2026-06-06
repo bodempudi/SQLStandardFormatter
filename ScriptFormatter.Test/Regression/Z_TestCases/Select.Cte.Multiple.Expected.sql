@@ -1,5 +1,4 @@
-;WITH CustomerCTE
-AS
+;WITH CustomerCTE AS
 (
 	SELECT
 		CustomerId
@@ -8,8 +7,7 @@ AS
 	WHERE
 		Status = 'ACTIVE'
 )
-,AccountCTE
-AS
+,AccountCTE AS
 (
 	SELECT
 		CustomerId

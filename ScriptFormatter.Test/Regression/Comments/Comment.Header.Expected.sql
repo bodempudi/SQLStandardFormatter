@@ -1,5 +1,4 @@
 -- Customer Query
-
 SELECT
 	CustomerId
 	,CustomerName

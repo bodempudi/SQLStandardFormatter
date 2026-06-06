@@ -1,8 +1,9 @@
 CREATE PROCEDURE dbo.usp_Test
 AS
+/*
+Procedure History
+*/
 BEGIN
-	-- Load customer
 	SELECT
-		*
-	FROM dbo.Customer
+		1
 END

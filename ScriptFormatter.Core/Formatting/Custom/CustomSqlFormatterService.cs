@@ -43,31 +43,112 @@ namespace ScriptFormatter.Core.Formatting.Custom
         private bool _hasLeadingSemicolonBeforeCte;
         private readonly BooleanExpressionFormatter _booleanExpressionFormatter =
     new BooleanExpressionFormatter();
-        private Dictionary<int, string> _booleanExpressionInlineComments =
+        private Dictionary<int, string> _inlineComments =
     new Dictionary<int, string>();
-        private string _sourceSql;/*
         private string _sourceSql;
+        private string GetInlineComment(
+    TSqlFragment fragment)
+        {
+            if (fragment == null)
+            {
+                return string.Empty;
+            }
 
-        private Dictionary<int, string> _selectElementInlineComments =
-            new Dictionary<int, string>();*/
-        private void CaptureSelectInlineComments(
+            if (_inlineComments.ContainsKey(fragment.StartOffset))
+            {
+                return " " + _inlineComments[fragment.StartOffset];
+            }
+
+            return string.Empty;
+        }
+        private void CaptureInlineComments(
     TSqlScript script,
     List<SqlCommentInfo> comments)
         {
-            _selectElementInlineComments.Clear();
-            _booleanExpressionInlineComments.Clear();
+            _inlineComments.Clear();
 
             foreach (TSqlBatch batch in script.Batches)
             {
                 foreach (TSqlStatement statement in batch.Statements)
                 {
-                    CaptureSelectInlineCommentsFromStatement(
+                    CaptureInlineCommentsFromStatement(
                         statement,
                         comments);
                 }
             }
         }
-        private void CaptureSelectInlineCommentsFromQueryExpression(
+        private void BindInlineComment(
+    TSqlFragment fragment,
+    List<SqlCommentInfo> comments)
+        {
+            if (fragment == null ||
+                comments == null)
+            {
+                return;
+            }
+
+            string comment =
+                FindInlineCommentForFragment(
+                    fragment,
+                    comments);
+
+            if (!string.IsNullOrWhiteSpace(comment))
+            {
+                _inlineComments[fragment.StartOffset] =
+                    comment;
+            }
+        }
+        private void CaptureTableReferenceInlineComments(
+    TableReference tableReference,
+    List<SqlCommentInfo> comments)
+        {
+            if (tableReference == null)
+            {
+                return;
+            }
+
+            BindInlineComment(
+                tableReference,
+                comments);
+
+            if (tableReference is QualifiedJoin join)
+            {
+                CaptureTableReferenceInlineComments(
+                    join.FirstTableReference,
+                    comments);
+
+                CaptureTableReferenceInlineComments(
+                    join.SecondTableReference,
+                    comments);
+
+                CaptureBooleanInlineComments(
+                    join.SearchCondition,
+                    comments);
+            }
+        }
+
+        private void WriteLeadingCommentsBeforeOffset(
+    SqlFormatWriter writer,
+    int offset,
+    int indentLevel)
+        {
+            if (_currentComments == null ||
+                _currentComments.Count == 0)
+            {
+                return;
+            }
+
+            while (_currentCommentIndex < _currentComments.Count &&
+                   _currentComments[_currentCommentIndex].Offset < offset)
+            {
+                writer.WriteLine(
+                    indentLevel,
+                    _currentComments[_currentCommentIndex].Text);
+
+                _currentCommentIndex++;
+            }
+        }
+        private void CaptureInlineCommentsFromQueryExpression(
     QueryExpression queryExpression,
     List<SqlCommentInfo> comments)
         {
@@ -75,46 +156,55 @@ namespace ScriptFormatter.Core.Formatting.Custom
             {
                 foreach (SelectElement element in query.SelectElements)
                 {
-                    string comment =
-                        FindInlineCommentForFragment(
-                            element,
-                            comments);
+                    BindInlineComment(
+                        element,
+                        comments);
+                }
 
-                    if (!string.IsNullOrWhiteSpace(comment))
+                if (query.FromClause != null)
+                {
+                    foreach (TableReference tableReference
+                        in query.FromClause.TableReferences)
                     {
-                        _selectElementInlineComments[
-                            element.StartOffset] =
-                            comment;
+                        CaptureTableReferenceInlineComments(
+                            tableReference,
+                            comments);
                     }
                 }
 
-                if (query.WhereClause != null)
-                {
-                    CaptureBooleanInlineComments(
-                        query.WhereClause.SearchCondition,
-                        comments);
-                }
+                CaptureBooleanInlineComments(
+                    query.WhereClause?.SearchCondition,
+                    comments);
 
                 return;
             }
 
             if (queryExpression is BinaryQueryExpression binary)
             {
-                CaptureSelectInlineCommentsFromQueryExpression(
+                CaptureInlineCommentsFromQueryExpression(
                     binary.FirstQueryExpression,
                     comments);
 
-                CaptureSelectInlineCommentsFromQueryExpression(
+                CaptureInlineCommentsFromQueryExpression(
                     binary.SecondQueryExpression,
                     comments);
+
+                return;
             }
 
             if (queryExpression is QueryParenthesisExpression parenthesis)
             {
-                CaptureSelectInlineCommentsFromQueryExpression(
+                CaptureInlineCommentsFromQueryExpression(
                     parenthesis.QueryExpression,
                     comments);
             }
+        }
+
+        private string GetTableReferenceInlineComment(
+    TableReference tableReference)
+        {
+            return GetInlineComment(
+                tableReference);
         }
         private void CaptureBooleanInlineComments(
     BooleanExpression expression,
@@ -147,36 +237,15 @@ namespace ScriptFormatter.Core.Formatting.Custom
                 return;
             }
 
-            string comment =
-                FindInlineCommentForFragment(
-                    expression,
-                    comments);
-
-            if (!string.IsNullOrWhiteSpace(comment))
-            {
-                _booleanExpressionInlineComments[
-                    expression.StartOffset] =
-                    comment;
-            }
+            BindInlineComment(
+                expression,
+                comments);
         }
         private string GetBooleanInlineComment(
     BooleanExpression expression)
         {
-            if (expression == null)
-            {
-                return string.Empty;
-            }
-
-            if (_booleanExpressionInlineComments.ContainsKey(
-                    expression.StartOffset))
-            {
-                return
-                    " " +
-                    _booleanExpressionInlineComments[
-                        expression.StartOffset];
-            }
-
-            return string.Empty;
+            return GetInlineComment(
+                expression);
         }
         private bool HasUnsupportedInlineComment(
     List<SqlCommentInfo> comments)
@@ -189,18 +258,12 @@ namespace ScriptFormatter.Core.Formatting.Custom
                     continue;
                 }
 
-                bool handledBySelect =
-                    _selectElementInlineComments
+                bool handled =
+                    _inlineComments
                         .Values
                         .Any(x => x == comment.Text);
 
-                bool handledByBoolean =
-                    _booleanExpressionInlineComments
-                        .Values
-                        .Any(x => x == comment.Text);
-
-                if (!handledBySelect &&
-                    !handledByBoolean)
+                if (!handled)
                 {
                     return true;
                 }
@@ -208,19 +271,45 @@ namespace ScriptFormatter.Core.Formatting.Custom
 
             return false;
         }
-        private void CaptureSelectInlineCommentsFromStatement(
+        private string GetSetClauseInlineComment(
+    SetClause setClause)
+        {
+            return GetInlineComment(
+                setClause);
+        }
+        private void CaptureSetClauseInlineComments(
+    IList<SetClause> setClauses,
+    List<SqlCommentInfo> comments)
+        {
+            if (setClauses == null)
+            {
+                return;
+            }
+
+            foreach (SetClause setClause in setClauses)
+            {
+                BindInlineComment(
+                    setClause,
+                    comments);
+            }
+        }
+        private void CaptureInlineCommentsFromStatement(
     TSqlStatement statement,
     List<SqlCommentInfo> comments)
         {
             if (statement is SelectStatement selectStatement)
             {
-                CaptureSelectInlineCommentsFromQueryExpression(
+                CaptureInlineCommentsFromQueryExpression(
                     selectStatement.QueryExpression,
                     comments);
             }
 
             if (statement is UpdateStatement updateStatement)
             {
+                CaptureSetClauseInlineComments(
+                    updateStatement.UpdateSpecification.SetClauses,
+                    comments);
+
                 CaptureBooleanInlineComments(
                     updateStatement.UpdateSpecification.WhereClause?.SearchCondition,
                     comments);
@@ -263,9 +352,6 @@ namespace ScriptFormatter.Core.Formatting.Custom
 
             return comment?.Text;
         }
-
-        private Dictionary<int, string> _selectElementInlineComments =
-            new Dictionary<int, string>();
         private int GetLineNumberFromOffset(
     string sql,
     int offset)
@@ -393,7 +479,7 @@ namespace ScriptFormatter.Core.Formatting.Custom
 
             if (fragment is TSqlScript script)
             {
-                CaptureSelectInlineComments(
+                CaptureInlineComments(
                     script,
                     comments);
 
@@ -439,8 +525,7 @@ namespace ScriptFormatter.Core.Formatting.Custom
                     indentLevel,
                     _currentComments[_currentCommentIndex].Text);
 
-                writer.WriteRawLine(
-                    string.Empty);
+                //writer.WriteRawLine(string.Empty);
 
                 _currentCommentIndex++;
             }
@@ -607,7 +692,8 @@ namespace ScriptFormatter.Core.Formatting.Custom
         }
         private void FormatCtes(
     SqlFormatWriter writer,
-    WithCtesAndXmlNamespaces withCtes, int indentLevel)
+    WithCtesAndXmlNamespaces withCtes,
+    int indentLevel)
         {
             if (withCtes == null ||
                 withCtes.CommonTableExpressions.Count == 0)
@@ -620,6 +706,8 @@ namespace ScriptFormatter.Core.Formatting.Custom
                 CommonTableExpression cte =
                     withCtes.CommonTableExpressions[i];
 
+                string cteHeader;
+
                 if (i == 0)
                 {
                     string withPrefix =
@@ -627,19 +715,28 @@ namespace ScriptFormatter.Core.Formatting.Custom
                             ? ";WITH "
                             : "WITH ";
 
-                    writer.WriteLine(
+                    cteHeader =
                         withPrefix +
-                        cte.ExpressionName.Value);
+                        cte.ExpressionName.Value +
+                        " AS";
                 }
                 else
                 {
-                    writer.WriteLine(
+                    cteHeader =
                         "," +
-                        cte.ExpressionName.Value);
+                        cte.ExpressionName.Value +
+                        " AS";
                 }
 
-                writer.WriteLine("AS");
+                writer.WriteLine(
+                    cteHeader);
+
                 writer.WriteLine("(");
+
+                WriteLeadingCommentsBeforeOffset(
+                    writer,
+                    cte.QueryExpression.StartOffset,
+                    indentLevel + 1);
 
                 string formattedQuery =
                     FormatQueryExpression(
@@ -663,15 +760,12 @@ namespace ScriptFormatter.Core.Formatting.Custom
                     FormatSelectScalarExpression(
                         scalar);
 
-                if (_selectElementInlineComments.ContainsKey(
-                        selectElement.StartOffset) &&
-                    lines.Count > 0)
+                if (lines.Count > 0)
                 {
                     lines[
                         lines.Count - 1].Text +=
-                        " " +
-                        _selectElementInlineComments[
-                            selectElement.StartOffset];
+                        GetInlineComment(
+                            selectElement);
                 }
 
                 return lines;
@@ -680,23 +774,16 @@ namespace ScriptFormatter.Core.Formatting.Custom
             IList<FormattedLine> defaultLines =
                 new List<FormattedLine>
                 {
-            new FormattedLine
-            {
-                RelativeIndent = 0,
-                Text = GetFragmentText(
-                    selectElement)
-            }
+                    new FormattedLine
+                    {
+                        RelativeIndent = 0,
+                        Text =
+                            GetFragmentText(
+                                selectElement) +
+                            GetInlineComment(
+                                selectElement)
+                    }
                 };
-
-            if (_selectElementInlineComments.ContainsKey(
-                    selectElement.StartOffset))
-            {
-                defaultLines[
-                    defaultLines.Count - 1].Text +=
-                    " " +
-                    _selectElementInlineComments[
-                        selectElement.StartOffset];
-            }
 
             return defaultLines;
         }
@@ -1044,8 +1131,7 @@ namespace ScriptFormatter.Core.Formatting.Custom
                     _currentComments[
                         _currentCommentIndex].Text);
 
-                writer.WriteRawLine(
-                    string.Empty);
+                //writer.WriteRawLine(string.Empty);
 
                 _currentCommentIndex++;
             }
@@ -1358,11 +1444,13 @@ namespace ScriptFormatter.Core.Formatting.Custom
             else
             {
                 writer.WriteRawLine(
-                    joinIndent +
-                    joinKeyword +
-                    " " +
-                    GetFragmentText(
-                        join.SecondTableReference));
+    joinIndent +
+    joinKeyword +
+    " " +
+    GetFragmentText(
+        join.SecondTableReference) +
+    GetInlineComment(
+        join.SecondTableReference));
             }
 
             FormatJoinCondition(
@@ -1950,12 +2038,15 @@ namespace ScriptFormatter.Core.Formatting.Custom
                 "SET");
 
             for (int i = 0;
-                i < specification.SetClauses.Count;
-                i++)
+    i < specification.SetClauses.Count;
+    i++)
             {
+                SetClause setClause =
+                    specification.SetClauses[i];
+
                 string setText =
-                    GetFragmentText(
-                        specification.SetClauses[i]);
+                    GetFragmentText(setClause) +
+                    GetInlineComment(setClause);
 
                 if (i == 0)
                 {
@@ -3192,7 +3283,7 @@ namespace ScriptFormatter.Core.Formatting.Custom
     op + " " +
     FormatBooleanExpressionInline(
         binary.SecondExpression) +
-    GetBooleanInlineComment(
+    GetInlineComment(
         binary.SecondExpression));
                 }
 
@@ -3251,7 +3342,7 @@ namespace ScriptFormatter.Core.Formatting.Custom
                 writer.WriteLine(
                     indentLevel,
                     FormatComparisonExpression(comparison) +
-                    GetBooleanInlineComment(expression));
+                    GetInlineComment(expression));
 
                 return;
             }
@@ -3259,7 +3350,7 @@ namespace ScriptFormatter.Core.Formatting.Custom
             writer.WriteLine(
                 indentLevel,
                 GetFragmentText(expression) +
-                GetBooleanInlineComment(expression));
+                GetInlineComment(expression));
         }
         private void FormatInSubqueryPredicate(
     SqlFormatWriter writer,

@@ -45,13 +45,15 @@ namespace ScriptFormatter.Tests
                 TestContext.WriteLine(
                     $"RUNNING : {testName}");
 
+                
+
                 try
                 {
                     string expectedFile =
                         inputFile.Replace(
                             ".Input.sql",
                             ".Expected.sql");
-
+                    //TestContext.WriteLine(expectedFile);
                     if (!File.Exists(expectedFile))
                     {
                         throw new FileNotFoundException(
