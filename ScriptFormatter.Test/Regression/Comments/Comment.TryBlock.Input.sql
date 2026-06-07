@@ -1,0 +1,8 @@
+BEGIN TRY
+    -- Processing
+    SELECT 1
+END TRY
+BEGIN CATCH
+    -- Error handling
+    SELECT ERROR_MESSAGE()
+END CATCH
