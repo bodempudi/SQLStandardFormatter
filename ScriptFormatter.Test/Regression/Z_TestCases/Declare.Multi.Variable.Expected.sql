@@ -1,0 +1,3 @@
+﻿DECLARE
+	@A INT
+	,@B INT

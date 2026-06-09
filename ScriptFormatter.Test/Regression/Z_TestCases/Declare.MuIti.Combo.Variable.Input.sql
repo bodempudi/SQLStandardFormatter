@@ -1,0 +1,1 @@
+﻿DECLARE @A INT = 1, @B VARCHAR(20) = 'X'

@@ -3037,18 +3037,24 @@ namespace ScriptFormatter.Core.Formatting.Custom
             return writer.ToString();
         }
         private string FormatDeclareStatement(
-    DeclareVariableStatement declareStatement,
-    int indentLevel)
+     DeclareVariableStatement declareStatement,
+     int indentLevel)
         {
             var writer =
                 new SqlFormatWriter();
 
-            foreach (
-                DeclareVariableElement variable
-                in declareStatement.Declarations)
+            writer.WriteLine(
+                indentLevel,
+                "DECLARE");
+
+            for (int i = 0;
+                i < declareStatement.Declarations.Count;
+                i++)
             {
-                string text =
-                    "DECLARE " +
+                DeclareVariableElement variable =
+                    declareStatement.Declarations[i];
+
+                string variableText =
                     variable.VariableName.Value +
                     " " +
                     GetFragmentText(
@@ -3056,15 +3062,24 @@ namespace ScriptFormatter.Core.Formatting.Custom
 
                 if (variable.Value != null)
                 {
-                    text +=
+                    variableText +=
                         " = " +
                         GetFragmentText(
                             variable.Value);
                 }
 
-                writer.WriteLine(
-                    indentLevel,
-                    text);
+                if (i == 0)
+                {
+                    writer.WriteLine(
+                        indentLevel + 1,
+                        variableText);
+                }
+                else
+                {
+                    writer.WriteLine(
+                        indentLevel + 1,
+                        "," + variableText);
+                }
             }
 
             return writer.ToString();
