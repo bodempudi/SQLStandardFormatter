@@ -939,8 +939,81 @@ namespace ScriptFormatter.Core.Formatting.Custom
                     prefix + line.Text);
             }
         }
-        private IList<FormattedLine> FormatExpressionLines(
-   ScalarExpression expression)
+        private IList<FormattedLine> FormatFunctionCallLines(
+    FunctionCall functionCall)
+        {
+            bool hasCaseParameter =
+                functionCall.Parameters.Any(
+                    x => x is SearchedCaseExpression ||
+                         x is SimpleCaseExpression);
+
+            if (!hasCaseParameter)
+            {
+                return new List<FormattedLine>
+        {
+            new FormattedLine
+            {
+                RelativeIndent = 0,
+                Text = GetFragmentText(functionCall)
+            }
+        };
+            }
+
+            var lines =
+                new List<FormattedLine>();
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = functionCall.FunctionName.Value
+                });
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = "("
+                });
+
+            for (int i = 0; i < functionCall.Parameters.Count; i++)
+            {
+                ScalarExpression parameter =
+                    functionCall.Parameters[i];
+
+                IList<FormattedLine> parameterLines =
+                    FormatExpressionLines(parameter);
+
+                for (int j = 0; j < parameterLines.Count; j++)
+                {
+                    string prefix =
+                        i > 0 && j == 0
+                            ? ","
+                            : string.Empty;
+
+                    lines.Add(
+                        new FormattedLine
+                        {
+                            RelativeIndent =
+                                parameterLines[j].RelativeIndent + 1,
+
+                            Text =
+                                prefix +
+                                parameterLines[j].Text
+                        });
+                }
+            }
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = ")"
+                });
+
+            return lines;
+        }
+        private IList<FormattedLine> FormatExpressionLines(ScalarExpression expression)
         {
             if (expression is SearchedCaseExpression searched)
             {
@@ -953,7 +1026,11 @@ namespace ScriptFormatter.Core.Formatting.Custom
                 return FormatSimpleCaseExpressionLines(
                     simple);
             }
-
+            if (expression is FunctionCall functionCall)
+            {
+                return FormatFunctionCallLines(
+                    functionCall);
+            }
             return new List<FormattedLine>
     {
         new FormattedLine
