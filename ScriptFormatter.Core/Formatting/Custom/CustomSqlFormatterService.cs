@@ -2857,6 +2857,12 @@ namespace ScriptFormatter.Core.Formatting.Custom
                     setVariableStatement,
                     indentLevel);
             }
+            if (statement is SetOnOffStatement setOnOffStatement)
+            {
+                return FormatSimpleStatement(
+                    setOnOffStatement,
+                    indentLevel);
+            }
             return GetFragmentText(statement);
         }
         private string FormatCreateOrAlterViewStatement(
