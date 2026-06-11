@@ -10,6 +10,16 @@ using System.Threading.Tasks;
 
 namespace ScriptFormatter.Core.Formatting.Custom
 {
+    public sealed class FormattedSqlNode
+    {
+        public List<FormattedLine> Lines { get; } =
+            new List<FormattedLine>();
+
+        public bool IsMultiline
+        {
+            get { return Lines.Count > 1; }
+        }
+    }
     public sealed class FormattedLine
     {
         public int RelativeIndent { get; set; }
@@ -60,6 +70,45 @@ namespace ScriptFormatter.Core.Formatting.Custom
             }
 
             return string.Empty;
+        }
+        private FormattedSqlNode FormatScalarExpressionNode(
+    ScalarExpression expression)
+        {
+            var node =
+                new FormattedSqlNode();
+
+            if (expression is SearchedCaseExpression searched)
+            {
+                node.Lines.AddRange(
+                    FormatSearchedCaseExpressionLines(searched));
+
+                return node;
+            }
+
+            if (expression is SimpleCaseExpression simple)
+            {
+                node.Lines.AddRange(
+                    FormatSimpleCaseExpressionLines(simple));
+
+                return node;
+            }
+
+            if (expression is FunctionCall functionCall)
+            {
+                node.Lines.AddRange(
+                    FormatFunctionCallLines(functionCall));
+
+                return node;
+            }
+
+            node.Lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = GetFragmentText(expression)
+                });
+
+            return node;
         }
         private void CaptureInlineComments(
     TSqlScript script,
@@ -942,12 +991,15 @@ namespace ScriptFormatter.Core.Formatting.Custom
         private IList<FormattedLine> FormatFunctionCallLines(
     FunctionCall functionCall)
         {
-            bool hasCaseParameter =
-                functionCall.Parameters.Any(
-                    x => x is SearchedCaseExpression ||
-                         x is SimpleCaseExpression);
+            var parameterNodes =
+                functionCall.Parameters
+                    .Select(FormatScalarExpressionNode)
+                    .ToList();
 
-            if (!hasCaseParameter)
+            bool hasMultilineParameter =
+                parameterNodes.Any(x => x.IsMultiline);
+
+            if (!hasMultilineParameter)
             {
                 return new List<FormattedLine>
         {
@@ -976,15 +1028,12 @@ namespace ScriptFormatter.Core.Formatting.Custom
                     Text = "("
                 });
 
-            for (int i = 0; i < functionCall.Parameters.Count; i++)
+            for (int i = 0; i < parameterNodes.Count; i++)
             {
-                ScalarExpression parameter =
-                    functionCall.Parameters[i];
+                FormattedSqlNode parameterNode =
+                    parameterNodes[i];
 
-                IList<FormattedLine> parameterLines =
-                    FormatExpressionLines(parameter);
-
-                for (int j = 0; j < parameterLines.Count; j++)
+                for (int j = 0; j < parameterNode.Lines.Count; j++)
                 {
                     string prefix =
                         i > 0 && j == 0
@@ -995,11 +1044,11 @@ namespace ScriptFormatter.Core.Formatting.Custom
                         new FormattedLine
                         {
                             RelativeIndent =
-                                parameterLines[j].RelativeIndent + 1,
+                                parameterNode.Lines[j].RelativeIndent + 1,
 
                             Text =
                                 prefix +
-                                parameterLines[j].Text
+                                parameterNode.Lines[j].Text
                         });
                 }
             }
@@ -1013,32 +1062,12 @@ namespace ScriptFormatter.Core.Formatting.Custom
 
             return lines;
         }
-        private IList<FormattedLine> FormatExpressionLines(ScalarExpression expression)
+        private IList<FormattedLine> FormatExpressionLines(
+    ScalarExpression expression)
         {
-            if (expression is SearchedCaseExpression searched)
-            {
-                return FormatSearchedCaseExpressionLines(
-                    searched);
-            }
-
-            if (expression is SimpleCaseExpression simple)
-            {
-                return FormatSimpleCaseExpressionLines(
-                    simple);
-            }
-            if (expression is FunctionCall functionCall)
-            {
-                return FormatFunctionCallLines(
-                    functionCall);
-            }
-            return new List<FormattedLine>
-    {
-        new FormattedLine
-        {
-            RelativeIndent = 0,
-            Text = GetFragmentText(expression)
-        }
-    };
+            return
+                FormatScalarExpressionNode(expression)
+                    .Lines;
         }
         private IList<FormattedLine> FormatSimpleCaseExpressionLines(
     SimpleCaseExpression caseExpression)
