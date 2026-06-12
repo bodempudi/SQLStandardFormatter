@@ -37,6 +37,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -49,6 +50,11 @@
     <Compile Include="Formatting\CommentInfo.cs" />
     <Compile Include="Formatting\Custom\CustomSqlFormatterService.cs" />
     <Compile Include="Formatting\Custom\Expressions\BooleanExpressionFormatter.cs" />
+    <Compile Include="Formatting\Custom\Nodes\FormatNode.cs" />
+    <Compile Include="Formatting\Custom\Nodes\FormatNodeBuilder.cs" />
+    <Compile Include="Formatting\Custom\Nodes\FormatNodeRenderer.cs" />
+    <Compile Include="Formatting\Custom\Nodes\FormatRenderOptions.cs" />
+    <Compile Include="Formatting\Custom\Nodes\ScalarExpressionNodeBuilder.cs" />
     <Compile Include="Formatting\Custom\QuerySpecificationVisitor.cs" />
     <Compile Include="Formatting\Custom\SelectStatementVisitor.cs" />
     <Compile Include="Formatting\Custom\SqlFormatWriter.cs" />
@@ -60,5 +66,6 @@
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

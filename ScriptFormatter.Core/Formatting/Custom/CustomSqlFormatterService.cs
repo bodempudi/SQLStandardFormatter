@@ -56,6 +56,7 @@ namespace ScriptFormatter.Core.Formatting.Custom
         private Dictionary<int, string> _inlineComments =
     new Dictionary<int, string>();
         private string _sourceSql;
+
         private string GetInlineComment(
     TSqlFragment fragment)
         {
@@ -71,16 +72,110 @@ namespace ScriptFormatter.Core.Formatting.Custom
 
             return string.Empty;
         }
+        private IList<FormattedLine> FormatCallLikeLines(
+    string name,
+    IList<FormattedSqlNode> argumentNodes,
+    TSqlFragment originalFragment)
+        {
+            bool hasMultilineArgument =
+                argumentNodes.Any(x => x.IsMultiline);
+
+            if (!hasMultilineArgument)
+            {
+                return new List<FormattedLine>
+        {
+            new FormattedLine
+            {
+                RelativeIndent = 0,
+                Text = GetFragmentText(originalFragment)
+            }
+        };
+            }
+
+            var lines =
+                new List<FormattedLine>();
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = name
+                });
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = "("
+                });
+
+            for (int i = 0; i < argumentNodes.Count; i++)
+            {
+                FormattedSqlNode argumentNode =
+                    argumentNodes[i];
+
+                for (int j = 0; j < argumentNode.Lines.Count; j++)
+                {
+                    string prefix =
+                        i > 0 && j == 0
+                            ? ","
+                            : string.Empty;
+
+                    lines.Add(
+                        new FormattedLine
+                        {
+                            RelativeIndent =
+                                argumentNode.Lines[j].RelativeIndent + 1,
+
+                            Text =
+                                prefix +
+                                argumentNode.Lines[j].Text
+                        });
+                }
+            }
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = ")"
+                });
+
+            return lines;
+        }
+
+        private FormattedSqlNode CreateSingleLineNode(
+    string text)
+        {
+            var node =
+                new FormattedSqlNode();
+
+            node.Lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = text
+                });
+
+            return node;
+        }
+
         private FormattedSqlNode FormatScalarExpressionNode(
     ScalarExpression expression)
         {
             var node =
                 new FormattedSqlNode();
 
+            if (expression == null)
+            {
+                return node;
+            }
+
             if (expression is SearchedCaseExpression searched)
             {
                 node.Lines.AddRange(
-                    FormatSearchedCaseExpressionLines(searched));
+                    FormatSearchedCaseExpressionLines(
+                        searched));
 
                 return node;
             }
@@ -88,7 +183,8 @@ namespace ScriptFormatter.Core.Formatting.Custom
             if (expression is SimpleCaseExpression simple)
             {
                 node.Lines.AddRange(
-                    FormatSimpleCaseExpressionLines(simple));
+                    FormatSimpleCaseExpressionLines(
+                        simple));
 
                 return node;
             }
@@ -96,7 +192,26 @@ namespace ScriptFormatter.Core.Formatting.Custom
             if (expression is FunctionCall functionCall)
             {
                 node.Lines.AddRange(
-                    FormatFunctionCallLines(functionCall));
+                    FormatFunctionCallLines(
+                        functionCall));
+
+                return node;
+            }
+
+            if (expression is ConvertCall convertCall)
+            {
+                node.Lines.AddRange(
+                    FormatConvertCallLines(
+                        convertCall));
+
+                return node;
+            }
+
+            if (expression is CoalesceExpression coalesceExpression)
+            {
+                node.Lines.AddRange(
+                    FormatCoalesceExpressionLines(
+                        coalesceExpression));
 
                 return node;
             }
@@ -105,10 +220,162 @@ namespace ScriptFormatter.Core.Formatting.Custom
                 new FormattedLine
                 {
                     RelativeIndent = 0,
-                    Text = GetFragmentText(expression)
+                    Text = GetFragmentText(
+                        expression)
                 });
 
             return node;
+        }
+
+        private IList<FormattedLine> FormatCoalesceExpressionLines(
+    CoalesceExpression coalesceExpression)
+        {
+            var expressionNodes =
+                coalesceExpression.Expressions
+                    .Select(FormatScalarExpressionNode)
+                    .ToList();
+
+            bool hasMultilineExpression =
+                expressionNodes.Any(x => x.IsMultiline);
+
+            if (!hasMultilineExpression)
+            {
+                return new List<FormattedLine>
+        {
+            new FormattedLine
+            {
+                RelativeIndent = 0,
+                Text = GetFragmentText(coalesceExpression)
+            }
+        };
+            }
+
+            var lines =
+                new List<FormattedLine>();
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = "COALESCE"
+                });
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = "("
+                });
+
+            for (int i = 0; i < expressionNodes.Count; i++)
+            {
+                FormattedSqlNode expressionNode =
+                    expressionNodes[i];
+
+                for (int j = 0; j < expressionNode.Lines.Count; j++)
+                {
+                    string prefix =
+                        i > 0 && j == 0
+                            ? ","
+                            : string.Empty;
+
+                    lines.Add(
+                        new FormattedLine
+                        {
+                            RelativeIndent =
+                                expressionNode.Lines[j].RelativeIndent + 1,
+
+                            Text =
+                                prefix +
+                                expressionNode.Lines[j].Text
+                        });
+                }
+            }
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = ")"
+                });
+
+            return lines;
+        }
+        private IList<FormattedLine> FormatConvertCallLines(
+    ConvertCall convertCall)
+        {
+            FormattedSqlNode parameterNode =
+                FormatScalarExpressionNode(
+                    convertCall.Parameter);
+
+            bool isMultiline =
+                parameterNode.IsMultiline;
+
+            if (!isMultiline)
+            {
+                return new List<FormattedLine>
+        {
+            new FormattedLine
+            {
+                RelativeIndent = 0,
+                Text = GetFragmentText(convertCall)
+            }
+        };
+            }
+
+            var lines =
+                new List<FormattedLine>();
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = "CONVERT"
+                });
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = "("
+                });
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 1,
+                    Text = FormatDataType(
+                        convertCall.DataType)
+                });
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 1,
+                    Text = ","
+                });
+
+            foreach (FormattedLine line in parameterNode.Lines)
+            {
+                lines.Add(
+                    new FormattedLine
+                    {
+                        RelativeIndent =
+                            line.RelativeIndent + 1,
+
+                        Text =
+                            line.Text
+                    });
+            }
+
+            lines.Add(
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text = ")"
+                });
+
+            return lines;
         }
         private void CaptureInlineComments(
     TSqlScript script,
@@ -800,6 +1067,29 @@ namespace ScriptFormatter.Core.Formatting.Custom
                 writer.WriteLine(")");
             }
         }
+        private IList<FormattedLine> FormatSelectScalarExpression(
+    SelectScalarExpression scalar)
+        {
+            IList<FormattedLine> expressionLines =
+                FormatExpressionLines(
+                    scalar.Expression);
+
+            if (scalar.ColumnName != null &&
+                expressionLines.Count > 0)
+            {
+                FormattedLine last =
+                    expressionLines[
+                        expressionLines.Count - 1];
+
+                last.Text =
+                    last.Text +
+                    " AS " +
+                    GetFragmentText(
+                        scalar.ColumnName);
+            }
+
+            return expressionLines;
+        }
         private IList<FormattedLine> FormatSelectElement(
      SelectElement selectElement)
         {
@@ -819,7 +1109,11 @@ namespace ScriptFormatter.Core.Formatting.Custom
 
                 return lines;
             }
-
+            if (selectElement is SelectSetVariable setVariable)
+            {
+                return FormatSelectSetVariable(
+                    setVariable);
+            }
             IList<FormattedLine> defaultLines =
                 new List<FormattedLine>
                 {
@@ -835,6 +1129,48 @@ namespace ScriptFormatter.Core.Formatting.Custom
                 };
 
             return defaultLines;
+        }
+        private IList<FormattedLine> FormatSelectSetVariable(
+    SelectSetVariable setVariable)
+        {
+            IList<FormattedLine> expressionLines =
+                FormatExpressionLines(
+                    setVariable.Expression);
+
+            if (expressionLines == null ||
+                expressionLines.Count == 0)
+            {
+                return new List<FormattedLine>();
+            }
+
+            if (expressionLines.Count == 1)
+            {
+                expressionLines[0].Text =
+                    setVariable.Variable.Name +
+                    " = " +
+                    expressionLines[0].Text;
+
+                return expressionLines;
+            }
+
+            expressionLines.Insert(
+                0,
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text =
+                        setVariable.Variable.Name +
+                        " ="
+                });
+
+            for (int i = 1;
+                 i < expressionLines.Count;
+                 i++)
+            {
+                expressionLines[i].RelativeIndent++;
+            }
+
+            return expressionLines;
         }
         private IList<FormattedLine> FormatSearchedCaseExpressionLines(
     SearchedCaseExpression caseExpression)
@@ -991,76 +1327,15 @@ namespace ScriptFormatter.Core.Formatting.Custom
         private IList<FormattedLine> FormatFunctionCallLines(
     FunctionCall functionCall)
         {
-            var parameterNodes =
+            IList<FormattedSqlNode> argumentNodes =
                 functionCall.Parameters
                     .Select(FormatScalarExpressionNode)
                     .ToList();
 
-            bool hasMultilineParameter =
-                parameterNodes.Any(x => x.IsMultiline);
-
-            if (!hasMultilineParameter)
-            {
-                return new List<FormattedLine>
-        {
-            new FormattedLine
-            {
-                RelativeIndent = 0,
-                Text = GetFragmentText(functionCall)
-            }
-        };
-            }
-
-            var lines =
-                new List<FormattedLine>();
-
-            lines.Add(
-                new FormattedLine
-                {
-                    RelativeIndent = 0,
-                    Text = functionCall.FunctionName.Value
-                });
-
-            lines.Add(
-                new FormattedLine
-                {
-                    RelativeIndent = 0,
-                    Text = "("
-                });
-
-            for (int i = 0; i < parameterNodes.Count; i++)
-            {
-                FormattedSqlNode parameterNode =
-                    parameterNodes[i];
-
-                for (int j = 0; j < parameterNode.Lines.Count; j++)
-                {
-                    string prefix =
-                        i > 0 && j == 0
-                            ? ","
-                            : string.Empty;
-
-                    lines.Add(
-                        new FormattedLine
-                        {
-                            RelativeIndent =
-                                parameterNode.Lines[j].RelativeIndent + 1,
-
-                            Text =
-                                prefix +
-                                parameterNode.Lines[j].Text
-                        });
-                }
-            }
-
-            lines.Add(
-                new FormattedLine
-                {
-                    RelativeIndent = 0,
-                    Text = ")"
-                });
-
-            return lines;
+            return FormatCallLikeLines(
+                functionCall.FunctionName.Value,
+                argumentNodes,
+                functionCall);
         }
         private IList<FormattedLine> FormatExpressionLines(
     ScalarExpression expression)
@@ -1287,26 +1562,6 @@ namespace ScriptFormatter.Core.Formatting.Custom
             writer.WriteLine("END");
 
             return writer.ToString().TrimEnd();
-        }
-        private IList<FormattedLine> FormatSelectScalarExpression(
-    SelectScalarExpression scalar)
-        {
-            IList<FormattedLine> expressionLines =
-                FormatExpressionLines(scalar.Expression);
-
-            if (scalar.ColumnName != null &&
-                expressionLines.Count > 0)
-            {
-                FormattedLine last =
-                    expressionLines[expressionLines.Count - 1];
-
-                last.Text =
-                    last.Text +
-                    " AS " +
-                    GetFragmentText(scalar.ColumnName);
-            }
-
-            return expressionLines;
         }
 
         private string FormatSelect(
@@ -3092,7 +3347,7 @@ namespace ScriptFormatter.Core.Formatting.Custom
                 string variableText =
                     variable.VariableName.Value +
                     " " +
-                    GetFragmentText(
+                    FormatDataType(
                         variable.DataType);
 
                 if (variable.Value != null)
@@ -3934,7 +4189,7 @@ namespace ScriptFormatter.Core.Formatting.Custom
 
             string suffix =
                 orderBy.SortOrder ==
-                SortOrder.Descending
+                Microsoft.SqlServer.TransactSql.ScriptDom.SortOrder.Descending
                     ? " DESC"
                     : string.Empty;
 
