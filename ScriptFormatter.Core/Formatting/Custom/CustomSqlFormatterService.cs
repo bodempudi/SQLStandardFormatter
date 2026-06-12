@@ -2399,27 +2399,41 @@ namespace ScriptFormatter.Core.Formatting.Custom
                 "SET");
 
             for (int i = 0;
-    i < specification.SetClauses.Count;
-    i++)
+     i < specification.SetClauses.Count;
+     i++)
             {
-                SetClause setClause =
-                    specification.SetClauses[i];
+                IList<FormattedLine> lines =
+                    FormatSetClauseLines(
+                        specification.SetClauses[i]);
 
-                string setText =
-                    GetFragmentText(setClause) +
-                    GetInlineComment(setClause);
+                if (lines == null ||
+                    lines.Count == 0)
+                {
+                    continue;
+                }
 
                 if (i == 0)
                 {
                     writer.WriteLine(
                         indentLevel + 1,
-                        setText);
+                        lines[0].Text);
                 }
                 else
                 {
                     writer.WriteLine(
                         indentLevel + 1,
-                        "," + setText);
+                        "," + lines[0].Text);
+                }
+
+                for (int j = 1;
+                     j < lines.Count;
+                     j++)
+                {
+                    writer.WriteLine(
+                        indentLevel +
+                        1 +
+                        lines[j].RelativeIndent,
+                        lines[j].Text);
                 }
             }
 
@@ -4175,10 +4189,104 @@ namespace ScriptFormatter.Core.Formatting.Custom
 
             writer.WriteLine(
                 indentLevel,
-                "IF " +
-                FormatBooleanExpressionInline(predicate));
+                "IF");
+
+            writer.WriteLine(
+                indentLevel,
+                "(");
+
+            BooleanExpression expression =
+    predicate;
+
+            if (predicate is BooleanParenthesisExpression parenthesis)
+            {
+                expression =
+                    parenthesis.Expression;
+            }
+
+            FormatBooleanExpression(
+                writer,
+                expression,
+                indentLevel + 1);
+
+            writer.WriteLine(
+                indentLevel,
+                ")");
 
             return writer.ToString();
+        }
+        private IList<FormattedLine> FormatSetClauseLines(
+    SetClause setClause)
+        {
+            if (setClause is AssignmentSetClause assignment)
+            {
+                string leftSide =
+                    GetFragmentText(
+                        assignment.Column);
+
+                IList<FormattedLine> valueLines =
+                    FormatExpressionLines(
+                        assignment.NewValue);
+
+                if (valueLines == null ||
+                    valueLines.Count == 0)
+                {
+                    return new List<FormattedLine>
+            {
+                new FormattedLine
+                {
+                    RelativeIndent = 0,
+                    Text =
+                        GetFragmentText(setClause) +
+                        GetInlineComment(setClause)
+                }
+            };
+                }
+
+                if (valueLines.Count == 1)
+                {
+                    valueLines[0].Text =
+                        leftSide +
+                        " = " +
+                        valueLines[0].Text +
+                        GetInlineComment(setClause);
+
+                    return valueLines;
+                }
+
+                valueLines.Insert(
+                    0,
+                    new FormattedLine
+                    {
+                        RelativeIndent = 0,
+                        Text =
+                            leftSide +
+                            " ="
+                    });
+
+                for (int i = 1;
+                     i < valueLines.Count;
+                     i++)
+                {
+                    valueLines[i].RelativeIndent++;
+                }
+
+                valueLines[valueLines.Count - 1].Text +=
+                    GetInlineComment(setClause);
+
+                return valueLines;
+            }
+
+            return new List<FormattedLine>
+    {
+        new FormattedLine
+        {
+            RelativeIndent = 0,
+            Text =
+                GetFragmentText(setClause) +
+                GetInlineComment(setClause)
+        }
+    };
         }
         private IList<FormattedLine> FormatOrderByElementLines(
    ExpressionWithSortOrder orderBy)
