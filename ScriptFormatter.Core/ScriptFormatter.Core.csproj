@@ -50,6 +50,8 @@
     <Compile Include="Formatting\CommentInfo.cs" />
     <Compile Include="Formatting\Custom\CustomSqlFormatterService.cs" />
     <Compile Include="Formatting\Custom\Expressions\BooleanExpressionFormatter.cs" />
+    <Compile Include="Formatting\Custom\FormatterMessage.cs" />
+    <Compile Include="Formatting\Custom\MessageType.cs" />
     <Compile Include="Formatting\Custom\Nodes\FormatNode.cs" />
     <Compile Include="Formatting\Custom\Nodes\FormatNodeBuilder.cs" />
     <Compile Include="Formatting\Custom\Nodes\FormatNodeRenderer.cs" />
@@ -58,6 +60,7 @@
     <Compile Include="Formatting\Custom\QuerySpecificationVisitor.cs" />
     <Compile Include="Formatting\Custom\SelectStatementVisitor.cs" />
     <Compile Include="Formatting\Custom\SqlFormatWriter.cs" />
+    <Compile Include="Formatting\FragmentInfo.cs" />
     <Compile Include="Formatting\SqlFormatterService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Validation\SqlValidationIssue.cs" />
